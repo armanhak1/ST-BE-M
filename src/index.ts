@@ -1,48 +1,48 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import { z } from 'zod';
-import OpenAI from 'openai';
+// index.ts
+import express from "express";
+import { generateStatementAI } from "./ai";
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
-// --- AI client (same file) ---
-const ai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-async function generateAIResponse(prompt: string): Promise<string> {
-  const response = await ai.responses.create({
-    model: 'gpt-5',
-    input: prompt,
-    instructions: 'You are a concise, helpful assistant for a backend API.',
-  });
-  return response.output_text;
-}
-
-// --- Validation ---
-const BodySchema = z.object({
-  prompt: z.string().min(1, 'prompt is required'),
-});
-
-// --- Route ---
-app.post('/ai', async (req, res) => {
-  const parsed = BodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.format() });
-  }
-
+// Example route
+app.post("/generate", async (req, res) => {
   try {
-    const text = await generateAIResponse(parsed.data.prompt);
-    return res.json({ ok: true, text });
-  } catch (err: any) {
-    console.error(err);
-    return res.status(500).json({ ok: false, error: err?.message ?? 'Unknown error' });
+    // Read from request body or set defaults
+    const {
+      startDate = "2025-03-01",
+      endDate = "2025-03-31",
+      startBalance = 5000,
+      count = 20,
+      depositRatio = 0.25,
+      currency = "$",
+    } = req.body;
+
+      console.log("[/generate] input:", {
+      startDate, endDate, startBalance, count, depositRatio, currency,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL,
+    });
+
+    // Generate statement using the AI module
+    const result = await generateStatementAI({
+      startDate,
+      endDate,
+      startBalance,
+      count,
+      depositRatio,
+      currency,
+    });
+
+    // Send back the generated transactions
+    res.json(result);
+  } catch (err) {
+    console.error("Error generating statement:", err);
+    res.status(500).json({ error: "Failed to generate statement" });
   }
 });
 
-// --- Start server ---
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
