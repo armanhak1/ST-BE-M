@@ -48,7 +48,6 @@ export type GenerateOutput = {
 // ———————————————————————————————————————————————————————————
 // Internals (rule-based scaffold + AI enrichment)
 // ———————————————————————————————————————————————————————————
-console.log(process.env.OPENAI_API_KEY_SK, process.env.OPENAI_MODEL, '@@@')
 const MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4.1"; // premium by default
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || "",

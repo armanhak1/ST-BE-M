@@ -18,11 +18,6 @@ app.post("/generate", async (req, res) => {
       currency = "$",
     } = req.body;
 
-      console.log("[/generate] input:", {
-      startDate, endDate, startBalance, count, depositRatio, currency,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_MODEL,
-    });
 
     // Generate statement using the AI module
     const result = await generateStatementAI({
