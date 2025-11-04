@@ -1,304 +1,229 @@
-// ai.ts
-// AI-only module to generate synthetic transactions and enrich descriptions with a premium LLM.
+// ai-statement-autogen.ts
+// One-shot AI module: the model generates LA-based POOLS (cafes, restaurants, zelle names, ATM locations, etc.)
+// and the STATEMENT in a single JSON response.
+// Usage: import { generateStatementAI } from "./ai-statement-autogen";
+//        const data = await generateStatementAI({ ... }, { apiKey: process.env.OPENAI_API_KEY });
 //
-// Usage:
-//   import { generateStatementAI } from "./ai";
-//   const { rows, totals } = await generateStatementAI({
-//     startDate: "2025-03-01",
-//     endDate: "2025-03-31",
-//     startBalance: 150000,
-//     count: 20,
-//     depositRatio: 0.25,
-//     currency: "$",
-//   });
-//
-// Env:
-//   OPENAI_API_KEY=sk-...    (required for AI enrichment)
-//   OPENAI_MODEL=gpt-5       (optional, defaults to a premium model)
-// Notes:
-//   - This produces synthetic data only. Add your own watermarking/verification in the PDF layer.
-
+// Requires: npm i openai
 import OpenAI from "openai";
+import { ChatCompletionMessageParam } from "openai/resources/index";
 
-export type Txn = {
-  date: string;          // "M/D"
-  check: string;         // usually ""
-  description: string;   // AI-enriched
-  type: "deposit" | "withdrawal";
-  deposit: number | "";  // numeric for deposits, "" otherwise
-  withdrawal: number | "";// numeric for withdrawals, "" otherwise
-  ending: number;        // running balance
-};
+/** Minimal inputs you control */
+export interface AutoConfig {
+  month: string;                 // e.g., "September"
+  year: number;                  // e.g., 2025
+  starting_balance: number;      // e.g., 2000
+  withdrawal_target: number;     // e.g., 5000  (monthly spend target)
+  ending_balance_target?: number; // preferred ending balance (optional if using deposit_target)
+  deposit_target?: number | null; // optional alternative to ending_balance_target
+  min_transactions: number;      // e.g., 60+
+  card_last4: string;            // e.g., "8832"
+  include_refs: boolean;         // include REF codes & mobile deposit ref numbers
+}
 
-export type GenerateInput = {
-  startDate: string;     // "YYYY-MM-DD"
-  endDate: string;       // "YYYY-MM-DD"
-  startBalance: number;  // starting balance number
-  count?: number;        // number of transactions (default 18)
-  depositRatio?: number; // probability [0..1] that a row is deposit (default 0.25)
-  currency?: string;     // "$", "€", etc (default "$")
-  locale?: string;       // e.g., "en-US" (affects some formatting hints)
-};
+/** Output shape from the model */
+export interface Pools {
+  cafes: string[];
+  restaurants: string[];
+  online_marketplaces: string[];
+  recurring_merchants: string[];
+  armenian_names: string[];
+  russian_names: string[];
+  mexican_names: string[];
+  us_names: string[];
+  atm_locations: { street: string; city_state: string }[];
+}
 
-export type GenerateOutput = {
-  rows: Txn[];
-  totals: { deposits: number; withdrawals: number; endingBalance: number };
-};
+export interface StatementTransaction {
+  date: string;                  // "MM/DD"
+  category:
+    | "ZELLE_SEND"
+    | "PURCHASE_CAFE"
+    | "PURCHASE_RESTAURANT"
+    | "PURCHASE_ONLINE_MARKETPLACE"
+    | "MOBILE_CHECK_DEPOSIT"
+    | "ZELLE_FROM"
+    | "RECURRING_PAYMENT"
+    | "ATM_WITHDRAWAL";
+  type: "withdrawal" | "deposit";
+  description: string;
+  amount: number;
+  balance_after: number;
+  metadata?: {
+    city?: string;
+    state?: "CA";
+    card_last4?: string;
+    ref?: string;
+    ref_number?: string;
+    atm_id?: string;
+  };
+}
 
-// ———————————————————————————————————————————————————————————
-// Internals (rule-based scaffold + AI enrichment)
-// ———————————————————————————————————————————————————————————
-const MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4.1"; // premium by default
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
+export interface StatementJSON {
+  statement: {
+    period: { month: string; year: number };
+    starting_balance: number;
+    labels: { withdrawals: "Withdrawals/Subtractions"; deposits: "Deposits/Additions" };
+    totals: {
+      deposits: number;
+      withdrawals: number;
+      ending_balance: number;
+      transaction_count: number;
+    };
+    transactions: StatementTransaction[];
+  };
+}
+
+export interface AutoResponse {
+  pools: Pools;
+  statement: StatementJSON["statement"];
+}
+
+/** System prompt: strict JSON only, model must generate POOLS + STATEMENT in one response */
+const SYSTEM_PROMPT = `
+You are a financial data generator.
+
+Output strictly valid JSON and nothing else. No comments, no extra text.
+Return a single object with two keys: "pools" and "statement".
+
+1) First, produce Los Angeles–area POOLS that you will use:
+{
+  "pools": {
+    "cafes": string[],                    // LA cafes
+    "restaurants": string[],              // LA/SoCal restaurant names
+    "online_marketplaces": string[],      // realistic e-commerce brands (Amazon, Etsy, Temu, etc.)
+    "recurring_merchants": string[],      // Apple.Com/Bill, Netflix, Spotify, etc.
+    "armenian_names": string[],           // given+family names
+    "russian_names": string[],
+    "mexican_names": string[],
+    "us_names": string[],
+    "atm_locations": [ { "street": string, "city_state": "City CA" }, ... ]
+  }
+}
+
+2) Then, using ONLY those pools, generate a monthly checking STATEMENT object:
+- Exactly these categories:
+  "ZELLE_SEND", "PURCHASE_CAFE", "PURCHASE_RESTAURANT",
+  "PURCHASE_ONLINE_MARKETPLACE", "MOBILE_CHECK_DEPOSIT",
+  "ZELLE_FROM", "RECURRING_PAYMENT", "ATM_WITHDRAWAL"
+- Date format: "MM/DD" within the given month and year. Sort ascending by date.
+- Names style: mix Armenian, Russian, Mexican, and U.S. names for Zelle entries.
+- Purchases end with "Card {card_last4}".
+- ATM lines include street, city, "ATM ID {6 digits}", and "Card {card_last4}".
+- If include_refs=true, add realistic "ref" strings and 12-digit mobile "ref_number".
+- Running "balance_after" must be arithmetically correct for each transaction.
+- Totals must equal the sums; transaction_count must match length.
+- Amounts: mixed small/medium/few large.
+- Aim withdrawals close to "withdrawal_target".
+- Size deposits so ending balance ≈ "ending_balance_target" (or use "deposit_target" if provided).
+- Minimum transaction count: "min_transactions" (can exceed if needed for realism).
+- Labels:
+  "labels": { "withdrawals": "Withdrawals/Subtractions", "deposits": "Deposits/Additions" }
+
+Return JSON in this shape:
+{
+  "pools": { ... as described ... },
+  "statement": {
+    "period": { "month": "string", "year": 0 },
+    "starting_balance": 0.00,
+    "labels": {
+      "withdrawals": "Withdrawals/Subtractions",
+      "deposits": "Deposits/Additions"
+    },
+    "totals": {
+      "deposits": 0.00,
+      "withdrawals": 0.00,
+      "ending_balance": 0.00,
+      "transaction_count": 0
+    },
+    "transactions": [
+      {
+        "date": "MM/DD",
+        "category": "ZELLE_SEND | PURCHASE_CAFE | PURCHASE_RESTAURANT | PURCHASE_ONLINE_MARKETPLACE | MOBILE_CHECK_DEPOSIT | ZELLE_FROM | RECURRING_PAYMENT | ATM_WITHDRAWAL",
+        "type": "withdrawal | deposit",
+        "description": "string",
+        "amount": 0.00,
+        "balance_after": 0.00,
+        "metadata": {
+          "city": "string (optional when available)",
+          "state": "CA",
+          "card_last4": "string",
+          "ref": "string",
+          "ref_number": "string",
+          "atm_id": "string"
+        }
+      }
+    ]
+  }
+}
+`.trim();
+
+/** Build user prompt with minimal variables; AI will autogenerate pools + statement */
+export function buildUserPrompt(cfg: AutoConfig): string {
+  return `
+Generate LA-based merchant/name/ATM POOLS and a full monthly STATEMENT in a single JSON object.
+
+VARIABLES:
+- month: "${cfg.month}"
+- year: ${cfg.year}
+- starting_balance: ${cfg.starting_balance}
+- withdrawal_target: ${cfg.withdrawal_target}
+- ending_balance_target: ${cfg.ending_balance_target ?? "null"}
+- deposit_target: ${cfg.deposit_target ?? "null"}
+- min_transactions: ${cfg.min_transactions}
+- card_last4: "${cfg.card_last4}"
+- include_refs: ${cfg.include_refs}
+
+CONSTRAINTS & FORMATS:
+- Purchases:
+  "Purchase authorized on MM/DD {Merchant Name} CA S{REF} Card ${cfg.card_last4}"
+- Online marketplace (example pattern):
+  "Purchase authorized on MM/DD Alibaba.Com Singap 408-7855580 CA S{REF} Card ${cfg.card_last4}"
+- Zelle:
+  "Zelle to {Full Name} on MM/DD Ref # {REF}"
+  "Zelle From {Full Name} on MM/DD Ref # {REF}"
+- Mobile check deposit:
+  "Mobile Deposit : Ref Number :{12-digit-number} on MM/DD"
+- ATM:
+  "ATM Withdrawal authorized on MM/DD {street} {city_state} ATM ID {6-digits} Card ${cfg.card_last4}"
+
+IMPORTANT:
+- Sort transactions by date ascending.
+- Compute running "balance_after" sequentially and exactly.
+- Ensure totals are accurate and consistent with transactions.
+- Use Los Angeles area cities/places and realistic merchant/name pools you generated.
+`.trim();
+}
+
+export interface GenerateOptions {
+  apiKey?: string;      // pass your key or pre-configured client
+  client?: OpenAI;
+  model?: string;       // default: gpt-5
+  temperature?: number; // default: 0.6
+}
+
+/** Core call — returns parsed JSON { pools, statement } */
+export async function generateStatementAI(
+  config: AutoConfig,
+  options: GenerateOptions = {}
+): Promise<AutoResponse> {
+  const client = options.client ?? new OpenAI({ apiKey: options.apiKey });
+  const model = options.model ?? "gpt-4.1-mini";
+  const temperature = options.temperature ?? 0.6;
+
+
+const messages: ChatCompletionMessageParam[] = [
+  { role: "system", content: SYSTEM_PROMPT },
+  { role: "user", content: buildUserPrompt(config) },
+];
+const resp = await client.chat.completions.create({
+  model,
+  messages,
+  response_format: { type: "json_object" },
+  temperature
 });
 
-// Lightweight date helpers (no deps)
-function toDate(s: string): Date {
-  const [y, m, d] = s.split("-").map((v) => parseInt(v, 10));
-  return new Date(y, (m - 1), d);
+
+  const raw = resp.choices?.[0]?.message?.content ?? "{}";
+  return JSON.parse(raw) as AutoResponse;
 }
-function addDays(base: Date, days: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-function diffDays(a: Date, b: Date): number {
-  const MS = 24 * 60 * 60 * 1000;
-  const aa = new Date(a.getFullYear(), a.getMonth(), a.getDate()).getTime();
-  const bb = new Date(b.getFullYear(), b.getMonth(), b.getDate()).getTime();
-  return Math.max(0, Math.round((bb - aa) / MS));
-}
-function fmtMD(d: Date): string {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
-
-function rand(a: number, b: number): number {
-  return Math.random() * (b - a) + a;
-}
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-// Category pools (brand names are generic/harmless)
-const WITHDRAWAL_BINS = {
-  tiny: { min: 4, max: 25 },      // coffee/snacks
-  small:{ min: 26, max: 85 },     // fast food, small items
-  med:  { min: 90, max: 450 },    // shopping, utilities
-  big:  { min: 700, max: 2500 },  // rent/auto/insurance
-};
-const DEPOSIT_BINS = {
-  small:{ min: 15, max: 180 },    // refunds, misc
-  big:  { min: 1500, max: 6500 }, // payroll / major transfer
-};
-
-const W_MERCHANTS = {
-  pos:  ["Corner Coffee", "Fresh Mart", "City Fuel", "Daily Goods", "Local Market"],
-  sub:  ["Streamify", "TuneBox", "CloudSuite", "PrimeShip"],
-  util: ["City Power", "Metro Net", "SoCal Gas", "Water & San"],
-  rest: ["Green Bowl", "Burger Hub", "Taco Spot", "Noodle Bar"],
-  groc: ["Grocer One", "Ralphs Market", "Trader Place"],
-};
-const CITIES = ["Los Angeles CA", "Glendale CA", "Santa Monica CA", "Burbank CA"];
-
-function baseDescription(type: "deposit" | "withdrawal", todayMD: string): string {
-  if (type === "deposit") {
-    const tag = Math.random() < 0.6 ? "Payroll Deposit" : pick(["Refund", "Transfer From Savings", "Cash Deposit"]);
-    if (tag === "Payroll Deposit") return `Payroll Deposit ${todayMD}`;
-    if (tag === "Refund") return `Card Refund ${pick(W_MERCHANTS.pos)}`;
-    if (tag === "Transfer From Savings") return `Online Transfer From Savings`;
-    return "Cash Deposit";
-  } else {
-    const bucket = pick(["POS", "ATM", "OnlineXfer", "Utility", "Subscription", "Fuel", "Restaurant", "Groceries"]);
-    switch (bucket) {
-      case "POS":         return `Purchase authorized on ${todayMD} ${pick(W_MERCHANTS.pos)} ${pick(CITIES)}`;
-      case "ATM":         return `ATM Cash Withdrawal ${pick(CITIES)}`;
-      case "OnlineXfer":  return `Online Transfer To Savings`;
-      case "Utility":     return `ACH Debit ${pick(W_MERCHANTS.util)}`;
-      case "Subscription":return `Card Recurring ${pick(W_MERCHANTS.sub)}`;
-      case "Fuel":        return `Card Auth Fuel Station ${pick(CITIES)}`;
-      case "Restaurant":  return `Card Auth ${pick(W_MERCHANTS.rest)}`;
-      case "Groceries":   return `Card Auth ${pick(W_MERCHANTS.groc)}`;
-      default:            return `Card Purchase ${pick(W_MERCHANTS.pos)}`;
-    }
-  }
-}
-
-function generateRuleRows(input: GenerateInput): Txn[] {
-  const {
-    startDate,
-    endDate,
-    startBalance,
-    count = 18,
-    depositRatio = 0.25,
-  } = input;
-
-  const start = toDate(startDate);
-  const end = toDate(endDate);
-  const span = Math.max(1, diffDays(start, end));
-  let bal = startBalance;
-
-  const raw: (Txn & { sortKey: number })[] = [];
-  for (let i = 0; i < count; i++) {
-    const dayOffset = Math.floor(rand(0, span + 1));
-    const d = addDays(start, dayOffset);
-    const md = fmtMD(d);
-
-    const isDeposit = Math.random() < depositRatio;
-
-    // amount selection
-    let amt: number;
-    if (isDeposit) {
-      amt = Math.random() < 0.35
-        ? rand(DEPOSIT_BINS.big.min, DEPOSIT_BINS.big.max)
-        : rand(DEPOSIT_BINS.small.min, DEPOSIT_BINS.small.max);
-    } else {
-      const r = Math.random();
-      if (r < 0.45) amt = rand(WITHDRAWAL_BINS.tiny.min, WITHDRAWAL_BINS.tiny.max);
-      else if (r < 0.75) amt = rand(WITHDRAWAL_BINS.small.min, WITHDRAWAL_BINS.small.max);
-      else if (r < 0.93) amt = rand(WITHDRAWAL_BINS.med.min, WITHDRAWAL_BINS.med.max);
-      else amt = rand(WITHDRAWAL_BINS.big.min, WITHDRAWAL_BINS.big.max);
-    }
-    amt = Math.round(amt * 100) / 100;
-
-    const desc = baseDescription(isDeposit ? "deposit" : "withdrawal", md);
-    bal = Math.round((bal + (isDeposit ? amt : -amt)) * 100) / 100;
-
-    raw.push({
-      date: md,
-      check: "",
-      description: desc,
-      type: isDeposit ? "deposit" : "withdrawal",
-      deposit: isDeposit ? amt : "",
-      withdrawal: !isDeposit ? amt : "",
-      ending: bal,
-      sortKey: d.getTime() + (isDeposit ? 1 : 0),
-    });
-  }
-
-  raw.sort((a, b) => a.sortKey - b.sortKey);
-  return raw.map(({ sortKey, ...rest }) => rest);
-}
-
-function summarize(rows: Txn[]) {
-  let deposits = 0, withdrawals = 0;
-  for (const r of rows) {
-    if (typeof r.deposit === "number") deposits += r.deposit;
-    if (typeof r.withdrawal === "number") withdrawals += r.withdrawal;
-  }
-  deposits = Math.round(deposits * 100) / 100;
-  withdrawals = Math.round(withdrawals * 100) / 100;
-  const endingBalance = rows.length ? rows[rows.length - 1].ending : 0;
-  return { deposits, withdrawals, endingBalance };
-}
-
-// Batch-enrich descriptions with LLM in one call (fast & consistent)
-async function enrichDescriptionsAI(rows: Txn[], locale = "en-US"): Promise<string[]> {
-  if (!client.apiKey) {
-    // No API key set — return original descriptions unchanged
-    return rows.map(r => r.description);
-  }
-
-  // Prepare compact payload to control costs and ensure structure
-  const base = rows.map((r, i) => ({
-    i,
-    type: r.type,
-    seed: r.description,
-    date: r.date,
-    amount: (typeof r.deposit === "number" ? r.deposit : r.withdrawal) || 0,
-    locale,
-  }));
-
-  const system = `
-You are a financial data simulator producing SHORT, natural transaction descriptions for a synthetic statement.
-Rules:
-- Keep it realistic, concise, and neutral (max 12 words).
-- No real bank names, no personal data, no sensitive info.
-- Keep the meaning of the seed, improve wording/variety only.
-- Keep date hints and merchant style if present.
-- Output JSON array with {i, rewritten} in the SAME order and length as input.
-`;
-
-  const user = `
-Rewrite these descriptions. Return ONLY valid JSON array.
-${JSON.stringify(base)}
-`;
-
-  const resp = await client.chat.completions.create({
-    model: MODEL, // premium model by default
-    temperature: 0.7,
-    messages: [
-      { role: "system", content: system.trim() },
-      { role: "user", content: user.trim() },
-    ],
-    response_format: { type: "json_object" } as any, // some SDKs use tool/JSON mode; fallback to parse
-  });
-
-  // Try parse; tolerate both array or object-wrapped array
-  const text = resp.choices?.[0]?.message?.content?.trim() || "[]";
-  let parsed: any;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    // If the model returned a top-level object, try common key guesses
-    try {
-      const m = text.match(/\[[\s\S]*\]/);
-      parsed = m ? JSON.parse(m[0]) : [];
-    } catch {
-      parsed = [];
-    }
-  }
-
-  // Normalize to array
-  const arr: { i: number; rewritten: string }[] = Array.isArray(parsed)
-    ? parsed
-    : (parsed?.items || parsed?.data || parsed?.rows || []);
-
-  const map = new Map<number, string>();
-  for (const item of arr) {
-    if (typeof item?.i === "number" && typeof item?.rewritten === "string") {
-      map.set(item.i, item.rewritten.trim());
-    }
-  }
-
-  return rows.map((_, i) => map.get(i) || rows[i].description);
-}
-
-// ———————————————————————————————————————————————————————————
-// Public API
-// ———————————————————————————————————————————————————————————
-
-export async function generateStatementAI(input: GenerateInput): Promise<GenerateOutput> {
-  const {
-    currency = "$",
-    locale = "en-US",
-  } = input;
-
-  // 1) Create rule-safe rows with correct math & dates
-  const rows = generateRuleRows(input);
-
-  // 2) Enrich descriptions with a premium LLM (best model)
-  const enriched = await enrichDescriptionsAI(rows, locale);
-  for (let i = 0; i < rows.length; i++) {
-    rows[i].description = enriched[i];
-  }
-
-  // 3) Totals
-  const totals = summarize(rows);
-
-  // 4) Return; PDF rendering is a separate layer
-  return { rows, totals };
-}
-
-// Optional helper if you want to quickly preview in Node (uncomment to run directly):
-// (async () => {
-//   const out = await generateStatementAI({
-//     startDate: "2025-03-01",
-//     endDate: "2025-03-31",
-//     startBalance: 5000,
-//     count: 20,
-//     depositRatio: 0.25,
-//     currency: "$",
-//   });
-//   console.log(JSON.stringify(out, null, 2));
-// })();
