@@ -20,6 +20,15 @@ const WEBHOOK_DOMAIN = process.env.WEBHOOK_DOMAIN;
 const WEBHOOK_PATH = "/telegram-webhook";
 let botInstance: any = null;
 
+// Root endpoint - simplest possible test
+app.get("/", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "Bank Statement Generator API",
+    endpoints: ["/health", "/test-webhook", "/generate", "/telegram-webhook"]
+  });
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   const uptime = Math.floor((Date.now() - serverStartTime) / 1000); // in seconds
