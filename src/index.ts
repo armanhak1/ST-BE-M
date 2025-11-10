@@ -155,68 +155,59 @@ app.listen(PORT, () => {
 
 // Initialize Telegram Bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const WEBHOOK_DOMAIN = process.env.WEBHOOK_DOMAIN; // e.g., https://st-be-m-production.up.railway.app
 let botInstance: any = null;
 
 if (TELEGRAM_BOT_TOKEN) {
-  // Launch bot asynchronously to avoid blocking server startup
+  botInstance = createBot(TELEGRAM_BOT_TOKEN);
+  
+  // Webhook endpoint for Telegram to send updates
+  app.use(botInstance.webhookCallback(`/telegram-webhook/${TELEGRAM_BOT_TOKEN}`));
+  
+  // Launch bot asynchronously
   (async () => {
     try {
-      botInstance = createBot(TELEGRAM_BOT_TOKEN);
-      
       console.log("🔄 Testing bot token...");
-      
-      // First, test the connection with getMe
-      const testConnection = botInstance.telegram.getMe();
-      const testTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Connection test timeout")), 10000);
-      });
-      
-      const botInfo = await Promise.race([testConnection, testTimeout]);
+      const botInfo = await botInstance.telegram.getMe();
       console.log(`✅ Bot verified: @${botInfo.username} (${botInfo.first_name})`);
       
-      console.log("🔄 Starting bot with polling...");
-      
-      // Launch bot - launch() starts the polling loop
-      // It resolves once the bot is ready, but may take time on first connection
-      const launchPromise = botInstance.launch({
-        allowedUpdates: ['message', 'callback_query'],
-        dropPendingUpdates: true,
-      });
-      
-      // Set a reasonable timeout (90 seconds) for the initial connection
-      const launchTimeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("Bot launch timeout - check network connection")), 90000);
-      });
-      
-      // Wait for launch to complete or timeout
-      await Promise.race([launchPromise, launchTimeout]);
-      console.log("🤖 Telegram bot is running and polling for updates!");
+      // Use webhook if WEBHOOK_DOMAIN is set (production), otherwise use polling (development)
+      if (WEBHOOK_DOMAIN) {
+        const webhookUrl = `${WEBHOOK_DOMAIN}/telegram-webhook/${TELEGRAM_BOT_TOKEN}`;
+        console.log(`🔄 Setting up webhook at: ${webhookUrl}`);
+        
+        await botInstance.telegram.setWebhook(webhookUrl, {
+          drop_pending_updates: true,
+          allowed_updates: ['message', 'callback_query']
+        });
+        
+        const webhookInfo = await botInstance.telegram.getWebhookInfo();
+        console.log(`✅ Webhook configured successfully!`);
+        console.log(`   URL: ${webhookInfo.url}`);
+        console.log(`   Pending updates: ${webhookInfo.pending_update_count}`);
+      } else {
+        // Development mode: use polling
+        console.log("🔄 Starting bot with polling (development mode)...");
+        await botInstance.launch({
+          allowedUpdates: ['message', 'callback_query'],
+          dropPendingUpdates: true,
+        });
+        console.log("🤖 Telegram bot is running with polling!");
+      }
     } catch (err: any) {
-      console.error("Error starting Telegram bot:", err);
+      console.error("❌ Error starting Telegram bot:", err);
       console.error("Error details:", err.message);
       
-      if (err.message.includes("timeout") || err.message.includes("Timeout")) {
-        console.error("⚠️  Connection timeout. Possible causes:");
-        console.error("   - Network connectivity issue");
-        console.error("   - Telegram API might be slow or unreachable");
-        console.error("   - Firewall/proxy blocking Telegram");
-        console.error("   - Try: curl https://api.telegram.org/bot<YOUR_TOKEN>/getMe");
-      }
       if (err.message.includes("401") || err.message.includes("Unauthorized")) {
         console.error("⚠️  Invalid bot token. Please check your TELEGRAM_BOT_TOKEN in .env file.");
-        console.error("   Get a new token from @BotFather on Telegram");
-      }
-      if (err.message.includes("ETIMEDOUT") || err.message.includes("ENOTFOUND")) {
-        console.error("⚠️  Network error. Check your internet connection and DNS settings.");
       }
       
-      // Don't exit - let the server continue running
       console.warn("⚠️  Bot failed to start, but server will continue running.");
       botInstance = null;
     }
   })();
   
-  // Graceful shutdown (set up regardless of bot launch status)
+  // Graceful shutdown
   process.once("SIGINT", () => {
     console.log("Shutting down...");
     if (botInstance) {

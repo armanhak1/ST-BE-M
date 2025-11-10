@@ -213,6 +213,7 @@ export interface GenerateOptions {
   client?: OpenAI;
   model?: string;       // default: gpt-5
   temperature?: number; // default: 0.6
+  timeout?: number;     // timeout in milliseconds (default: 120000 = 2 minutes)
 }
 
 /** Core call — returns parsed JSON { pools, statement } */
@@ -220,7 +221,10 @@ export async function generateStatementAI(
   config: AutoConfig,
   options: GenerateOptions = {}
 ): Promise<AutoResponse> {
-  const client = options.client ?? new OpenAI({ apiKey: options.apiKey });
+  const client = options.client ?? new OpenAI({ 
+    apiKey: options.apiKey,
+    timeout: options.timeout ?? 120000, // 2 minutes default timeout
+  });
   const model = options.model ?? "gpt-4.1-mini";
   const temperature = options.temperature ?? 0.6;
 
@@ -229,13 +233,21 @@ const messages: ChatCompletionMessageParam[] = [
   { role: "system", content: SYSTEM_PROMPT },
   { role: "user", content: buildUserPrompt(config) },
 ];
-const resp = await client.chat.completions.create({
+
+// Add timeout wrapper to prevent hanging requests
+const timeoutMs = options.timeout ?? 120000; // 2 minutes
+const completionPromise = client.chat.completions.create({
   model,
   messages,
   response_format: { type: "json_object" },
   temperature
 });
 
+const timeoutPromise = new Promise<never>((_, reject) => {
+  setTimeout(() => reject(new Error(`AI generation timed out after ${timeoutMs / 1000} seconds`)), timeoutMs);
+});
+
+const resp = await Promise.race([completionPromise, timeoutPromise]);
 
   const raw = resp.choices?.[0]?.message?.content ?? "{}";
   return JSON.parse(raw) as AutoResponse;
