@@ -14,6 +14,12 @@ app.use(cors()); // Allow all origins in production - or configure based on envi
 // Store server start time for uptime calculation
 const serverStartTime = Date.now();
 
+// Initialize Telegram Bot variables (must be before endpoints that use them)
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const WEBHOOK_DOMAIN = process.env.WEBHOOK_DOMAIN;
+const WEBHOOK_PATH = "/telegram-webhook";
+let botInstance: any = null;
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   const uptime = Math.floor((Date.now() - serverStartTime) / 1000); // in seconds
@@ -173,12 +179,7 @@ app.post("/summary", async (req, res) => {
 });
 
 
-// Initialize Telegram Bot
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEBHOOK_DOMAIN = process.env.WEBHOOK_DOMAIN; // e.g., https://st-be-m-production.up.railway.app
-const WEBHOOK_PATH = "/telegram-webhook";
-let botInstance: any = null;
-
+// Set up Telegram Bot
 if (TELEGRAM_BOT_TOKEN) {
   botInstance = createBot(TELEGRAM_BOT_TOKEN);
   
