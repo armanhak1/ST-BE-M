@@ -16,7 +16,19 @@ app.get("/", (req, res) => {
 
 app.get("/health", (req, res) => {
   console.log("✅ Health endpoint hit!");
-  res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+});
+
+// Railway health check endpoint
+app.get("/healthz", (req, res) => {
+  console.log("✅ Railway healthz endpoint hit!");
+  res.status(200).send("OK");
+});
+
+// Another common health check path
+app.get("/ping", (req, res) => {
+  console.log("✅ Ping endpoint hit!");
+  res.status(200).send("pong");
 });
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
