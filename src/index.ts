@@ -22,15 +22,18 @@ let botInstance: any = null;
 
 // Root endpoint - simplest possible test
 app.get("/", (req, res) => {
+  console.log("📍 Root endpoint hit");
   res.json({ 
     status: "ok", 
     message: "Bank Statement Generator API",
+    timestamp: new Date().toISOString(),
     endpoints: ["/health", "/test-webhook", "/generate", "/telegram-webhook"]
   });
 });
 
 // Health check endpoint
 app.get("/health", (req, res) => {
+  console.log("📍 Health endpoint hit");
   const uptime = Math.floor((Date.now() - serverStartTime) / 1000); // in seconds
   const uptimeFormatted = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`;
   
@@ -40,7 +43,7 @@ app.get("/health", (req, res) => {
     uptime: uptimeFormatted,
     uptimeSeconds: uptime,
     service: "Wells Fargo Statement Generator API",
-    version: "1.0.0",
+    version: "1.1.0",
     endpoints: {
       generate: "/generate (POST)",
       summary: "/summary (POST)",
@@ -55,6 +58,7 @@ app.get("/health", (req, res) => {
     },
   };
   
+  console.log("✅ Returning health status:", JSON.stringify(healthStatus, null, 2));
   res.status(200).json(healthStatus);
 });
 
