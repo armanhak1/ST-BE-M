@@ -30,14 +30,39 @@ app.get("/health", (req, res) => {
       generate: "/generate (POST)",
       summary: "/summary (POST)",
       health: "/health (GET)",
+      webhook: "/telegram-webhook (POST)",
     },
     environment: {
       openai_configured: !!process.env.OPENAI_API_KEY,
       telegram_bot_configured: !!process.env.TELEGRAM_BOT_TOKEN,
+      webhook_domain: process.env.WEBHOOK_DOMAIN || 'not set',
+      api_url: process.env.API_URL || 'not set',
     },
   };
   
   res.status(200).json(healthStatus);
+});
+
+// Test endpoint to check webhook connectivity
+app.get("/test-webhook", async (req, res) => {
+  if (!TELEGRAM_BOT_TOKEN || !botInstance) {
+    return res.status(500).json({ error: "Bot not initialized" });
+  }
+  
+  try {
+    const webhookInfo = await botInstance.telegram.getWebhookInfo();
+    res.json({
+      webhook_url: webhookInfo.url,
+      has_custom_certificate: webhookInfo.has_custom_certificate,
+      pending_update_count: webhookInfo.pending_update_count,
+      last_error_date: webhookInfo.last_error_date,
+      last_error_message: webhookInfo.last_error_message,
+      max_connections: webhookInfo.max_connections,
+      allowed_updates: webhookInfo.allowed_updates,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // First API endpoint: Generate full statement
@@ -159,7 +184,17 @@ if (TELEGRAM_BOT_TOKEN) {
   
   // Webhook endpoint for Telegram to send updates
   // This must be registered BEFORE server starts listening
-  app.use(botInstance.webhookCallback(WEBHOOK_PATH));
+  app.post(WEBHOOK_PATH, async (req, res) => {
+    console.log(`📥 Received webhook request`);
+    console.log(`Headers:`, JSON.stringify(req.headers, null, 2));
+    console.log(`Body:`, JSON.stringify(req.body, null, 2));
+    try {
+      await botInstance.handleUpdate(req.body, res);
+    } catch (err) {
+      console.error('❌ Error handling webhook:', err);
+      res.status(500).send('Error');
+    }
+  });
   
   console.log(`📍 Webhook endpoint registered at: ${WEBHOOK_PATH}`);
 }

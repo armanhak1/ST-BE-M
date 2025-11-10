@@ -34,19 +34,36 @@ export function createBot(token: string) {
     return userData.get(userId)!;
   }
 
+  // Log all incoming updates for debugging
+  bot.use(async (ctx, next) => {
+    console.log('📨 Received update:', JSON.stringify({
+      update_id: ctx.update.update_id,
+      from: ctx.from?.username || ctx.from?.id,
+      message: ctx.message && 'text' in ctx.message ? ctx.message.text : 'non-text',
+    }, null, 2));
+    await next();
+  });
+
   // Start command
   bot.start(async (ctx: Context) => {
+    console.log('🎬 /start command received from user:', ctx.from?.username || ctx.from?.id);
     const userId = ctx.from?.id;
     if (!userId) return;
 
     userData.set(userId, {});
     
-    await ctx.reply(
-      "👋 Welcome to the Bank Statement Generator Bot!\n\n" +
-      "I'll help you generate a bank statement PDF.\n\n" +
-      "Let's start by selecting the month:",
-      Markup.keyboard(months.map(m => [m])).resize()
-    );
+    try {
+      await ctx.reply(
+        "👋 Welcome to the Bank Statement Generator Bot!\n\n" +
+        "I'll help you generate a bank statement PDF.\n\n" +
+        "Let's start by selecting the month:",
+        Markup.keyboard(months.map(m => [m])).resize()
+      );
+      console.log('✅ Sent welcome message to user:', userId);
+    } catch (err) {
+      console.error('❌ Error sending welcome message:', err);
+      throw err;
+    }
   });
 
   // Handle month selection
