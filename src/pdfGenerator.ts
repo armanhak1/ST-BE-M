@@ -90,7 +90,7 @@ export async function generatePDF(data: any): Promise<Buffer> {
     
     // Helper to draw Wells Fargo logo (using image)
     // Try multiple paths: src folder (dev) and dist folder (production)
-    const logoFileName = "wells-fargo-vector-logo-11574282111r5zfolylck.png";
+    const logoFileName = "Wells_Fargo_Logo_(2020).svg.png";
     const possiblePaths = [
       path.join(__dirname, logoFileName), // dist folder (production)
       path.join(__dirname, "..", "src", logoFileName), // src folder (if running from dist)
