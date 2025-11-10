@@ -70,12 +70,13 @@ Railway will automatically redeploy when you push code. If not:
 ## 🔍 Expected Log Output (Successful)
 
 ```
+📍 Webhook endpoint registered at: /telegram-webhook
 🚀 Server running on port 8080
 🔄 Testing bot token...
 ✅ Bot verified: @la_st_xabs_bot (statement_bot)
-🔄 Setting up webhook at: https://st-be-m-production.up.railway.app/telegram-webhook/YOUR_TOKEN
+🔄 Setting up webhook at: https://st-be-m-production.up.railway.app/telegram-webhook
 ✅ Webhook configured successfully!
-   URL: https://st-be-m-production.up.railway.app/telegram-webhook/YOUR_TOKEN
+   URL: https://st-be-m-production.up.railway.app/telegram-webhook
    Pending updates: 0
 ```
 
@@ -131,7 +132,8 @@ Your `.gitignore` already protects `.env` files.
 - Added `WEBHOOK_DOMAIN` environment variable
 - Bot now uses webhooks in production (when `WEBHOOK_DOMAIN` is set)
 - Bot falls back to polling in development (when `WEBHOOK_DOMAIN` is not set)
-- Webhook endpoint: `/telegram-webhook/{BOT_TOKEN}`
+- Webhook endpoint: `/telegram-webhook` (simplified path)
+- Bot initialization moved before server start to ensure webhook is registered properly
 
 ### `src/bot.ts`
 - Bot now reads `API_URL` from environment variable

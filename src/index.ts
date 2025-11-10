@@ -148,80 +148,86 @@ app.post("/summary", async (req, res) => {
 });
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
 // Initialize Telegram Bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_DOMAIN = process.env.WEBHOOK_DOMAIN; // e.g., https://st-be-m-production.up.railway.app
+const WEBHOOK_PATH = "/telegram-webhook";
 let botInstance: any = null;
 
 if (TELEGRAM_BOT_TOKEN) {
   botInstance = createBot(TELEGRAM_BOT_TOKEN);
   
   // Webhook endpoint for Telegram to send updates
-  app.use(botInstance.webhookCallback(`/telegram-webhook/${TELEGRAM_BOT_TOKEN}`));
+  // This must be registered BEFORE server starts listening
+  app.use(botInstance.webhookCallback(WEBHOOK_PATH));
   
-  // Launch bot asynchronously
-  (async () => {
-    try {
-      console.log("🔄 Testing bot token...");
-      const botInfo = await botInstance.telegram.getMe();
-      console.log(`✅ Bot verified: @${botInfo.username} (${botInfo.first_name})`);
-      
-      // Use webhook if WEBHOOK_DOMAIN is set (production), otherwise use polling (development)
-      if (WEBHOOK_DOMAIN) {
-        const webhookUrl = `${WEBHOOK_DOMAIN}/telegram-webhook/${TELEGRAM_BOT_TOKEN}`;
-        console.log(`🔄 Setting up webhook at: ${webhookUrl}`);
-        
-        await botInstance.telegram.setWebhook(webhookUrl, {
-          drop_pending_updates: true,
-          allowed_updates: ['message', 'callback_query']
-        });
-        
-        const webhookInfo = await botInstance.telegram.getWebhookInfo();
-        console.log(`✅ Webhook configured successfully!`);
-        console.log(`   URL: ${webhookInfo.url}`);
-        console.log(`   Pending updates: ${webhookInfo.pending_update_count}`);
-      } else {
-        // Development mode: use polling
-        console.log("🔄 Starting bot with polling (development mode)...");
-        await botInstance.launch({
-          allowedUpdates: ['message', 'callback_query'],
-          dropPendingUpdates: true,
-        });
-        console.log("🤖 Telegram bot is running with polling!");
-      }
-    } catch (err: any) {
-      console.error("❌ Error starting Telegram bot:", err);
-      console.error("Error details:", err.message);
-      
-      if (err.message.includes("401") || err.message.includes("Unauthorized")) {
-        console.error("⚠️  Invalid bot token. Please check your TELEGRAM_BOT_TOKEN in .env file.");
-      }
-      
-      console.warn("⚠️  Bot failed to start, but server will continue running.");
-      botInstance = null;
-    }
-  })();
-  
-  // Graceful shutdown
-  process.once("SIGINT", () => {
-    console.log("Shutting down...");
-    if (botInstance) {
-      botInstance.stop("SIGINT");
-    }
-    process.exit(0);
-  });
-  process.once("SIGTERM", () => {
-    console.log("Shutting down...");
-    if (botInstance) {
-      botInstance.stop("SIGTERM");
-    }
-    process.exit(0);
-  });
-} else {
-  console.warn("⚠️  TELEGRAM_BOT_TOKEN not found in environment variables. Bot will not start.");
+  console.log(`📍 Webhook endpoint registered at: ${WEBHOOK_PATH}`);
 }
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  
+  // Set up webhook AFTER server is listening
+  if (TELEGRAM_BOT_TOKEN && botInstance) {
+    (async () => {
+      try {
+        console.log("🔄 Testing bot token...");
+        const botInfo = await botInstance.telegram.getMe();
+        console.log(`✅ Bot verified: @${botInfo.username} (${botInfo.first_name})`);
+        
+        // Use webhook if WEBHOOK_DOMAIN is set (production), otherwise use polling (development)
+        if (WEBHOOK_DOMAIN) {
+          const webhookUrl = `${WEBHOOK_DOMAIN}${WEBHOOK_PATH}`;
+          console.log(`🔄 Setting up webhook at: ${webhookUrl}`);
+          
+          await botInstance.telegram.setWebhook(webhookUrl, {
+            drop_pending_updates: true,
+            allowed_updates: ['message', 'callback_query']
+          });
+          
+          const webhookInfo = await botInstance.telegram.getWebhookInfo();
+          console.log(`✅ Webhook configured successfully!`);
+          console.log(`   URL: ${webhookInfo.url}`);
+          console.log(`   Pending updates: ${webhookInfo.pending_update_count}`);
+        } else {
+          // Development mode: use polling
+          console.log("🔄 Starting bot with polling (development mode)...");
+          await botInstance.launch({
+            allowedUpdates: ['message', 'callback_query'],
+            dropPendingUpdates: true,
+          });
+          console.log("🤖 Telegram bot is running with polling!");
+        }
+      } catch (err: any) {
+        console.error("❌ Error starting Telegram bot:", err);
+        console.error("Error details:", err.message);
+        
+        if (err.message.includes("401") || err.message.includes("Unauthorized")) {
+          console.error("⚠️  Invalid bot token. Please check your TELEGRAM_BOT_TOKEN in .env file.");
+        }
+        
+        console.warn("⚠️  Bot failed to start, but server will continue running.");
+        botInstance = null;
+      }
+    })();
+  } else if (!TELEGRAM_BOT_TOKEN) {
+    console.warn("⚠️  TELEGRAM_BOT_TOKEN not found in environment variables. Bot will not start.");
+  }
+});
+
+// Graceful shutdown
+process.once("SIGINT", () => {
+  console.log("Shutting down...");
+  if (botInstance) {
+    botInstance.stop("SIGINT");
+  }
+  process.exit(0);
+});
+process.once("SIGTERM", () => {
+  console.log("Shutting down...");
+  if (botInstance) {
+    botInstance.stop("SIGTERM");
+  }
+  process.exit(0);
+});
