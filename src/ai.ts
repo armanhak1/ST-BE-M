@@ -19,6 +19,10 @@ export interface AutoConfig {
   min_transactions: number;      // e.g., 60+
   card_last4: string;            // e.g., "8832"
   include_refs: boolean;         // include REF codes & mobile deposit ref numbers
+  full_name?: string;            // e.g., "JOHN DOE"
+  address?: string;              // e.g., "123 MAIN ST\nLOS ANGELES CA 90001"
+  mobile_deposit_business?: string | null; // e.g., "ACME CORPORATION"
+  mobile_deposit_amount?: number | null;   // e.g., 2000
 }
 
 /** Output shape from the model */
@@ -187,11 +191,20 @@ CONSTRAINTS & FORMATS:
 - ATM:
   "ATM Withdrawal authorized on MM/DD {street} {city_state} ATM ID {6-digits} Card ${cfg.card_last4}"
 
-IMPORTANT:
+IMPORTANT CONSTRAINTS:
 - Sort transactions by date ascending.
 - Compute running "balance_after" sequentially and exactly.
 - Ensure totals are accurate and consistent with transactions.
 - Use Los Angeles area cities/places and realistic merchant/name pools you generated.
+- ZELLE LIMIT: Zelle transactions (ZELLE_SEND + ZELLE_FROM) can be at most 33% of total transaction count
+- RECURRING PAYMENTS: Always include at least 1 recurring payment (e.g., Apple.Com/Bill, Netflix, Spotify)
+${cfg.mobile_deposit_business && cfg.mobile_deposit_amount ? `
+- MOBILE DEPOSIT: Include exactly ONE mobile deposit transaction with:
+  * Business name: "${cfg.mobile_deposit_business}"
+  * Amount: ${cfg.mobile_deposit_amount}
+  * Description format: "Mobile Deposit : Ref Number :{12-digit-number}"
+  * This deposit should be included in the deposits total and affect the ending balance calculation
+` : ''}
 `.trim();
 }
 

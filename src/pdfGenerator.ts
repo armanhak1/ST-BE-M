@@ -3,7 +3,7 @@ import { AutoResponse } from "./ai";
 import * as path from "path";
 import * as fs from "fs";
 
-export async function generatePDF(data: AutoResponse): Promise<Buffer> {
+export async function generatePDF(data: any): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     // US Letter size: 8.5" x 11" (612 x 792 points)
     const doc = new PDFDocument({
@@ -28,6 +28,11 @@ export async function generatePDF(data: AutoResponse): Promise<Buffer> {
       deposits: "Deposits/Additions",
       withdrawals: "Withdrawals/Subtractions",
     };
+    
+    // Get user info (name and address) - required fields from bot
+    const userInfo = data.user_info || {};
+    const fullName = userInfo.full_name || "";
+    const address = userInfo.address || "";
 
     // Helper function to format numbers
     const fmt = (n: number | undefined): string => {
@@ -167,7 +172,7 @@ export async function generatePDF(data: AutoResponse): Promise<Buffer> {
     const addressX = 54 * pxToPt;
     const addressY = 255 * pxToPt;
     doc.fontSize(12 * pxToPt).font("Times-Roman");
-    const addressText = `ARMAN HAKOBYAN\n10934 KEY WEST AVE\nPORTER RANCH CA 91326-2623`;
+    const addressText = `${fullName}\n${address}`;
     doc.text(addressText, addressX, addressY, {
       lineGap: 4,
     });
@@ -402,7 +407,7 @@ export async function generatePDF(data: AutoResponse): Promise<Buffer> {
     // Name (top:229px)
     let accY = accountStartY + 19 * pxToPt;
     doc.font("Helvetica-Bold").fontSize(10 * pxToPt).fillColor("#000000");
-    doc.text("ARMAN HAKOBYAN", accountPaneX, accY);
+    doc.text(fullName, accountPaneX, accY);
     
     // Terms (top:250px)
     accY += 21 * pxToPt;

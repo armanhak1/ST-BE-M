@@ -53,6 +53,10 @@ app.post("/generate", async (req, res) => {
       min_transactions = 65,
       card_last4 = "8832",
       include_refs = true,
+      full_name,
+      address,
+      mobile_deposit_business = null,
+      mobile_deposit_amount = null,
     } = req.body;
 
     console.log("API Call - /generate:", req.body);
@@ -75,11 +79,21 @@ app.post("/generate", async (req, res) => {
         min_transactions: min_transactions,
         card_last4: card_last4,
         include_refs: include_refs,
+        full_name: full_name,
+        address: address,
+        mobile_deposit_business: mobile_deposit_business,
+        mobile_deposit_amount: mobile_deposit_amount,
       },
       { apiKey: process.env.OPENAI_API_KEY }
     );
-    // Send back the generated transactions
-    res.json(result);
+    // Send back the generated transactions with user info
+    res.json({
+      ...result,
+      user_info: {
+        full_name,
+        address,
+      }
+    });
   } catch (err) {
     console.error("Error generating statement:", err);
     res.status(500).json({ error: "Failed to generate statement" });

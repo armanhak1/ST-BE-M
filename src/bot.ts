@@ -10,7 +10,11 @@ interface UserData {
   ending_balance_target?: number;
   min_transactions?: number;
   card_last4?: string;
-  include_refs?: boolean;
+  full_name?: string;
+  address?: string;
+  has_mobile_deposit?: boolean;
+  mobile_deposit_business?: string;
+  mobile_deposit_amount?: number;
 }
 
 const months = [
@@ -149,8 +153,7 @@ export function createBot(token: string) {
       if (/^\d{4}$/.test(cardLast4)) {
         data.card_last4 = cardLast4;
         await ctx.reply(
-          `✅ Card last 4: ${cardLast4}\n\nInclude reference numbers? (yes/no):`,
-          Markup.keyboard([["Yes", "No"]]).resize()
+          `✅ Card last 4: ${cardLast4}\n\nPlease enter your full name (e.g., JOHN DOE):`
         );
         return;
       } else {
@@ -159,14 +162,95 @@ export function createBot(token: string) {
       }
     }
 
-    // Handle include_refs
-    if (data.card_last4 && data.include_refs === undefined) {
-      const includeRefs = text.toLowerCase();
-      if (includeRefs === "yes" || includeRefs === "no") {
-        data.include_refs = includeRefs === "yes";
+    // Handle full name
+    if (data.card_last4 && !data.full_name) {
+      const fullName = text.trim().toUpperCase();
+      if (fullName.length > 0) {
+        data.full_name = fullName;
+        await ctx.reply(
+          `✅ Full name: ${fullName}\n\nPlease enter your address in format:\n` +
+          `Line 1: Street Address\n` +
+          `Line 2: City State ZIP\n\n` +
+          `Example:\n10934 KEY WEST AVE\nPORTER RANCH CA 91326-2623`
+        );
+        return;
+      } else {
+        await ctx.reply("❌ Please enter a valid full name:");
+        return;
+      }
+    }
+
+    // Handle address (multi-line)
+    if (data.full_name && !data.address) {
+      const address = text.trim().toUpperCase();
+      if (address.length > 0) {
+        data.address = address;
+        await ctx.reply(
+          `✅ Address set!\n\nDo you want to have Mobile Deposit check from business?`,
+          Markup.keyboard([["Yes", "No"]]).resize()
+        );
+        return;
+      } else {
+        await ctx.reply("❌ Please enter a valid address:");
+        return;
+      }
+    }
+
+    // Handle mobile deposit question
+    if (data.address && data.has_mobile_deposit === undefined) {
+      const response = text.toLowerCase();
+      if (response === "yes" || response === "no") {
+        data.has_mobile_deposit = response === "yes";
         
-        // All data collected, show summary and generate
-        const summary = `
+        if (data.has_mobile_deposit) {
+          await ctx.reply(
+            `✅ Great! Please enter the business name for the Mobile Deposit:`
+          );
+        } else {
+          // Skip mobile deposit, proceed to generate
+          await generateStatement(ctx, userId, data);
+        }
+        return;
+      } else {
+        await ctx.reply("❌ Please answer 'yes' or 'no':");
+        return;
+      }
+    }
+
+    // Handle mobile deposit business name
+    if (data.has_mobile_deposit && !data.mobile_deposit_business) {
+      const businessName = text.trim();
+      if (businessName.length > 0) {
+        data.mobile_deposit_business = businessName;
+        await ctx.reply(
+          `✅ Business name: ${businessName}\n\nPlease enter the check amount (e.g., 2000):`
+        );
+        return;
+      } else {
+        await ctx.reply("❌ Please enter a valid business name:");
+        return;
+      }
+    }
+
+    // Handle mobile deposit amount
+    if (data.mobile_deposit_business && data.mobile_deposit_amount === undefined) {
+      const amount = parseFloat(text);
+      if (!isNaN(amount) && amount > 0) {
+        data.mobile_deposit_amount = amount;
+        
+        // All data collected, proceed to generate
+        await generateStatement(ctx, userId, data);
+        return;
+      } else {
+        await ctx.reply("❌ Please enter a valid amount:");
+        return;
+      }
+    }
+  });
+
+  // Helper function to generate statement
+  async function generateStatement(ctx: Context, userId: number, data: UserData) {
+    const summary = `
 ✅ All data collected!
 
 📋 Summary:
@@ -177,65 +261,65 @@ export function createBot(token: string) {
 • Ending Balance Target: $${data.ending_balance_target?.toFixed(2)}
 • Min Transactions: ${data.min_transactions}
 • Card Last 4: ${data.card_last4}
-• Include Refs: ${data.include_refs ? "Yes" : "No"}
+• Full Name: ${data.full_name}
+• Address: ${data.address?.split('\n').join(', ')}
+• Mobile Deposit: ${data.has_mobile_deposit ? `Yes (${data.mobile_deposit_business}, $${data.mobile_deposit_amount?.toFixed(2)})` : 'No'}
 
 ⏳ Generating your bank statement PDF... This may take a moment.
-        `;
+    `;
+    
+    await ctx.reply(summary);
         
-        await ctx.reply(summary);
-        
-        try {
-          await ctx.reply("🔄 Calling API to generate statement data...");
-          
-          // Call the /generate endpoint
-          const response = await axios.post("http://localhost:3000/generate", {
-            month: data.month,
-            year: data.year,
-            starting_balance: data.starting_balance,
-            withdrawal_target: data.withdrawal_target,
-            ending_balance_target: data.ending_balance_target,
-            min_transactions: data.min_transactions,
-            card_last4: data.card_last4,
-            include_refs: data.include_refs,
-          });
+    try {
+      await ctx.reply("🔄 Calling API to generate statement data...");
+      
+      // Call the /generate endpoint with all new fields
+      const response = await axios.post("http://localhost:3000/generate", {
+        month: data.month,
+        year: data.year,
+        starting_balance: data.starting_balance,
+        withdrawal_target: data.withdrawal_target,
+        ending_balance_target: data.ending_balance_target,
+        min_transactions: data.min_transactions,
+        card_last4: data.card_last4,
+        include_refs: true, // Always include references
+        full_name: data.full_name,
+        address: data.address,
+        mobile_deposit_business: data.mobile_deposit_business,
+        mobile_deposit_amount: data.mobile_deposit_amount,
+      });
 
-          await ctx.reply("📄 Generating PDF...");
-          
-          // Generate PDF
-          const pdfBuffer = await generatePDF(response.data);
-          
-          await ctx.reply("📤 Sending PDF...");
-          
-          // Send PDF to user
-          await ctx.replyWithDocument({
-            source: pdfBuffer,
-            filename: `bank_statement_${data.month}_${data.year}.pdf`
-          });
-          
-          await ctx.reply(
-            "✅ Your bank statement PDF has been generated and sent!\n\n" +
-            "Type /start to generate another statement.",
-            Markup.removeKeyboard()
-          );
-          
-          // Clear user data
-          userData.delete(userId);
-        } catch (error: any) {
-          console.error("Error generating statement:", error);
-          await ctx.reply(
-            `❌ Error generating statement: ${error.message}\n\n` +
-            "Please try again with /start",
-            Markup.removeKeyboard()
-          );
-          userData.delete(userId);
-        }
-        return;
-      } else {
-        await ctx.reply("❌ Please answer 'yes' or 'no':");
-        return;
-      }
+      await ctx.reply("📄 Generating PDF...");
+      
+      // Generate PDF with new fields
+      const pdfBuffer = await generatePDF(response.data);
+      
+      await ctx.reply("📤 Sending PDF...");
+      
+      // Send PDF to user
+      await ctx.replyWithDocument({
+        source: pdfBuffer,
+        filename: `bank_statement_${data.month}_${data.year}.pdf`
+      });
+      
+      await ctx.reply(
+        "✅ Your bank statement PDF has been generated and sent!\n\n" +
+        "Type /start to generate another statement.",
+        Markup.removeKeyboard()
+      );
+      
+      // Clear user data
+      userData.delete(userId);
+    } catch (error: any) {
+      console.error("Error generating statement:", error);
+      await ctx.reply(
+        `❌ Error generating statement: ${error.message}\n\n` +
+        "Please try again with /start",
+        Markup.removeKeyboard()
+      );
+      userData.delete(userId);
     }
-  });
+  }
 
   // Cancel command
   bot.command("cancel", async (ctx: Context) => {
