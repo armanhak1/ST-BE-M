@@ -22,10 +22,29 @@ app.get("/health", (req, res) => {
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0';
 
+console.log(`🔧 Environment:`);
+console.log(`   PORT: ${process.env.PORT}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`🔧 Starting server on ${HOST}:${PORT}...`);
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 MINIMAL SERVER RUNNING on ${HOST}:${PORT}`);
   console.log(`📍 Visit: http://localhost:${PORT}/`);
+  console.log(`✅ Server is ready to accept connections`);
+});
+
+server.on('error', (error: any) => {
+  console.error('❌ Server error:', error);
+  console.error('   Code:', error.code);
+  console.error('   Message:', error.message);
+});
+
+// Handle Railway's health checks
+process.on('SIGTERM', () => {
+  console.log('⚠️  SIGTERM received, shutting down gracefully...');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
 
