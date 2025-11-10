@@ -11,6 +11,35 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: "http://localhost:5173" }));
 
+// Store server start time for uptime calculation
+const serverStartTime = Date.now();
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  const uptime = Math.floor((Date.now() - serverStartTime) / 1000); // in seconds
+  const uptimeFormatted = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`;
+  
+  const healthStatus = {
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    uptime: uptimeFormatted,
+    uptimeSeconds: uptime,
+    service: "Wells Fargo Statement Generator API",
+    version: "1.0.0",
+    endpoints: {
+      generate: "/generate (POST)",
+      summary: "/summary (POST)",
+      health: "/health (GET)",
+    },
+    environment: {
+      openai_configured: !!process.env.OPENAI_API_KEY,
+      telegram_bot_configured: !!process.env.TELEGRAM_BOT_TOKEN,
+    },
+  };
+  
+  res.status(200).json(healthStatus);
+});
+
 // First API endpoint: Generate full statement
 app.post("/generate", async (req, res) => {
   try {
@@ -86,7 +115,7 @@ app.post("/summary", async (req, res) => {
         card_last4: "8832",
         include_refs: true,
       },
-      { apiKey: "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" }
+      { apiKey: process.env.OPENAI_API_KEY }
     );
     
     // Return only summary data (no transactions array)
