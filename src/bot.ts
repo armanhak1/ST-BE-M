@@ -274,7 +274,9 @@ export function createBot(token: string) {
       await ctx.reply("🔄 Calling API to generate statement data...");
       
       // Call the /generate endpoint with all new fields
-      const response = await axios.post("http://localhost:3000/generate", {
+      // Use environment variable for API URL or default to localhost for development
+      const API_URL = process.env.API_URL || "http://localhost:3000";
+      const response = await axios.post(`${API_URL}/generate`, {
         month: data.month,
         year: data.year,
         starting_balance: data.starting_balance,
