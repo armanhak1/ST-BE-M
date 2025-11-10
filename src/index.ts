@@ -216,8 +216,14 @@ if (TELEGRAM_BOT_TOKEN) {
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = '0.0.0.0'; // Listen on all network interfaces (required for Railway)
 
+console.log(`🔧 Environment:`);
+console.log(`   PORT: ${process.env.PORT}`);
+console.log(`   NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`🔧 Starting full server on ${HOST}:${PORT}...`);
+
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server running on ${HOST}:${PORT}`);
+  console.log(`✅ Server is ready to accept connections`);
   
   // Set up webhook AFTER server is listening
   if (TELEGRAM_BOT_TOKEN && botInstance) {
