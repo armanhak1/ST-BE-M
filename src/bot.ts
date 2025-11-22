@@ -1,6 +1,7 @@
 import { Telegraf, Context, Markup } from "telegraf";
 import axios from "axios";
 import { generatePDF } from "./pdfGenerator";
+import { generateMockData } from "./mockData";
 
 interface UserData {
   month?: string;
@@ -15,6 +16,7 @@ interface UserData {
   has_mobile_deposit?: boolean;
   mobile_deposit_business?: string;
   mobile_deposit_amount?: number;
+  useMockData?: boolean;
 }
 
 const months = [
@@ -225,7 +227,7 @@ export function createBot(token: string) {
           );
         } else {
           // Skip mobile deposit, proceed to generate
-          await generateStatement(ctx, userId, data);
+          await generateStatement(ctx, userId, data, data.useMockData || false);
         }
         return;
       } else {
@@ -256,7 +258,7 @@ export function createBot(token: string) {
         data.mobile_deposit_amount = amount;
         
         // All data collected, proceed to generate
-        await generateStatement(ctx, userId, data);
+        await generateStatement(ctx, userId, data, data.useMockData || false);
         return;
       } else {
         await ctx.reply("❌ Please enter a valid amount:");
@@ -266,7 +268,7 @@ export function createBot(token: string) {
   });
 
   // Helper function to generate statement
-  async function generateStatement(ctx: Context, userId: number, data: UserData) {
+  async function generateStatement(ctx: Context, userId: number, data: UserData, useMockData: boolean = false) {
     const summary = `
 ✅ All data collected!
 
@@ -288,30 +290,52 @@ export function createBot(token: string) {
     await ctx.reply(summary);
         
     try {
-      await ctx.reply("🔄 Calling API to generate statement data...");
-      
-      // Call the /generate endpoint with all new fields
-      // Use environment variable for API URL or default to localhost for development
-      const API_URL = process.env.API_URL || "http://localhost:3000";
-      const response = await axios.post(`${API_URL}/generate`, {
-        month: data.month,
-        year: data.year,
-        starting_balance: data.starting_balance,
-        withdrawal_target: data.withdrawal_target,
-        ending_balance_target: data.ending_balance_target,
-        min_transactions: data.min_transactions,
-        card_last4: data.card_last4,
-        include_refs: true, // Always include references
-        full_name: data.full_name,
-        address: data.address,
-        mobile_deposit_business: data.mobile_deposit_business,
-        mobile_deposit_amount: data.mobile_deposit_amount,
-      });
+      let responseData: any;
+
+      if (useMockData) {
+        await ctx.reply("🎲 Generating mock statement data with 45 transactions...");
+        
+        // Generate mock data
+        responseData = generateMockData({
+          month: data.month,
+          year: data.year,
+          starting_balance: data.starting_balance,
+          withdrawal_target: data.withdrawal_target,
+          ending_balance_target: data.ending_balance_target,
+          full_name: data.full_name,
+          address: data.address,
+          card_last4: data.card_last4,
+          mobile_deposit_business: data.mobile_deposit_business,
+          mobile_deposit_amount: data.mobile_deposit_amount,
+        });
+      } else {
+        await ctx.reply("🔄 Calling API to generate statement data...");
+        
+        // Call the /generate endpoint with all new fields
+        // Use environment variable for API URL or default to localhost for development
+        const API_URL = process.env.API_URL || "http://localhost:3000";
+        const response = await axios.post(`${API_URL}/generate`, {
+          month: data.month,
+          year: data.year,
+          starting_balance: data.starting_balance,
+          withdrawal_target: data.withdrawal_target,
+          ending_balance_target: data.ending_balance_target,
+          min_transactions: data.min_transactions,
+          card_last4: data.card_last4,
+          include_refs: true, // Always include references
+          full_name: data.full_name,
+          address: data.address,
+          mobile_deposit_business: data.mobile_deposit_business,
+          mobile_deposit_amount: data.mobile_deposit_amount,
+        });
+        
+        responseData = response.data;
+      }
 
       await ctx.reply("📄 Generating PDF from HTML/CSS template...");
       
       // Generate PDF with HTML/CSS
-      const pdfBuffer = await generatePDF(response.data);
+      const pdfBuffer = await generatePDF(responseData);
       
       await ctx.reply("📤 Sending PDF...");
       
@@ -339,6 +363,23 @@ export function createBot(token: string) {
       userData.delete(userId);
     }
   }
+
+  // Mock command - generates PDF with mock data (45 transactions)
+  bot.command("mock", async (ctx: Context) => {
+    const userId = ctx.from?.id;
+    if (!userId) return;
+
+    await ctx.reply(
+      "🎲 Mock Statement Generator\n\n" +
+      "This will generate a PDF with 45 sample transactions using mock data.\n\n" +
+      "Let's start by selecting the month:",
+      Markup.keyboard(months.map(m => [m])).resize()
+    );
+
+    // Store flag to use mock data
+    const data = getUserData(userId);
+    data.useMockData = true;
+  });
 
   // Cancel command
   bot.command("cancel", async (ctx: Context) => {
