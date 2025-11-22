@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Statement Generator - Variables Table</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        table tr:last-child td {
+            border-bottom: none;
+        }
+
+        table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .variable-name {
+            font-weight: 600;
+            color: #333;
+            width: 40%;
+        }
+
+        .input-cell {
+            padding: 0;
+        }
+
+        .input-cell input,
+        .input-cell select,
+        .input-cell textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .input-cell input:focus,
+        .input-cell select:focus,
+        .input-cell textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-cell textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .checkbox-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-cell input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .conditional-row {
+            display: none;
+        }
+
+        .conditional-row.show {
+            display: table-row;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 20px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 15px;
+            color: #667eea;
+            font-size: 14px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            font-size: 13px;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .result-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .result-section pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 11px;
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 Bank Statement Generator</h1>
+            <p>Configure variables and generate statement</p>
+        </div>
+
+        <form id="statementForm">
+            <div class="table-container">
+                <table id="variablesTable">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Table rows will be generated dynamically from options map -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="submit-btn">Generate Statement</button>
+        </form>
+
+        <div class="loading" id="loading">
+            ⏳ Generating statement... Please wait...
+        </div>
+
+        <div class="error" id="error"></div>
+
+        <div class="result-section" id="resultSection">
+            <h3>Generated Statement Data:</h3>
+            <pre id="resultData"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Options map - defines all variables and their configurations
+        const optionsMap = {
+            month: {
+                label: 'Month',
+                type: 'select',
+                required: true,
+                value: 'October',
+                options: [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ]
+            },
+            year: {
+                label: 'Year',
+                type: 'number',
+                required: true,
+                value: 2025,
+                min: 2000,
+                max: 2100
+            },
+            starting_balance: {
+                label: 'Starting Balance ($)',
+                type: 'number',
+                required: true,
+                value: 2000,
+                step: 0.01,
+                min: 0
+            },
+            withdrawal_target: {
+                label: 'Withdrawal Target ($)',
+                type: 'number',
+                required: true,
+                value: 5000,
+                step: 0.01,
+                min: 0
+            },
+            ending_balance_target: {
+                label: 'Ending Balance Target ($)',
+                type: 'number',
+                required: true,
+                value: 1000,
+                step: 0.01,
+                min: 0
+            },
+            min_transactions: {
+                label: 'Minimum Transactions',
+                type: 'number',
+                required: true,
+                value: 65,
+                min: 1
+            },
+            card_last4: {
+                label: 'Card Last 4 Digits',
+                type: 'text',
+                required: true,
+                value: '8832',
+                pattern: '[0-9]{4}',
+                maxlength: 4
+            },
+            full_name: {
+                label: 'Full Name',
+                type: 'text',
+                required: true,
+                value: 'JOHN DOE'
+            },
+            address: {
+                label: 'Address',
+                type: 'textarea',
+                required: true,
+                value: '10934 KEY WEST AVE\nPORTER RANCH CA 91326-2623'
+            },
+            has_mobile_deposit: {
+                label: 'Mobile Deposit',
+                type: 'checkbox',
+                required: false,
+                value: false,
+                toggleRows: ['mobile_deposit_business', 'mobile_deposit_amount']
+            },
+            mobile_deposit_business: {
+                label: 'Mobile Deposit Business',
+                type: 'text',
+                required: false,
+                value: '',
+                conditional: true,
+                dependsOn: 'has_mobile_deposit'
+            },
+            mobile_deposit_amount: {
+                label: 'Mobile Deposit Amount ($)',
+                type: 'number',
+                required: false,
+                value: '',
+                step: 0.01,
+                min: 0,
+                conditional: true,
+                dependsOn: 'has_mobile_deposit'
+            }
+        };
+
+        // Function to create input element based on type
+        function createInput(key, config) {
+            let input;
+            const inputCell = document.createElement('td');
+            inputCell.className = 'input-cell';
+
+            switch (config.type) {
+                case 'select':
+                    input = document.createElement('select');
+                    input.id = key;
+                    input.name = key;
+                    if (config.required) input.required = true;
+                    config.options.forEach(option => {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = option;
+                        optionEl.textContent = option;
+                        if (option === config.value) optionEl.selected = true;
+                        input.appendChild(optionEl);
+                    });
+                    break;
+
+                case 'textarea':
+                    input = document.createElement('textarea');
+                    input.id = key;
+                    input.name = key;
+                    input.value = config.value;
+                    if (config.required) input.required = true;
+                    break;
+
+                case 'checkbox':
+                    input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.id = key;
+                    input.name = key;
+                    input.checked = config.value;
+                    const label = document.createElement('label');
+                    label.htmlFor = key;
+                    label.textContent = config.label;
+                    label.style.cursor = 'pointer';
+                    label.style.fontWeight = 'normal';
+                    const checkboxCell = document.createElement('td');
+                    checkboxCell.className = 'checkbox-cell';
+                    checkboxCell.appendChild(input);
+                    checkboxCell.appendChild(label);
+                    return checkboxCell;
+
+                case 'number':
+                    input = document.createElement('input');
+                    input.type = 'number';
+                    input.id = key;
+                    input.name = key;
+                    input.value = config.value;
+                    if (config.required) input.required = true;
+                    if (config.min !== undefined) input.min = config.min;
+                    if (config.max !== undefined) input.max = config.max;
+                    if (config.step !== undefined) input.step = config.step;
+                    break;
+
+                case 'text':
+                default:
+                    input = document.createElement('input');
+                    input.type = 'text';
+                    input.id = key;
+                    input.name = key;
+                    input.value = config.value;
+                    if (config.required) input.required = true;
+                    if (config.pattern) input.pattern = config.pattern;
+                    if (config.maxlength) input.maxLength = config.maxlength;
+                    break;
+            }
+
+            inputCell.appendChild(input);
+            return inputCell;
+        }
+
+        // Function to create table row
+        function createTableRow(key, config) {
+            const row = document.createElement('tr');
+            
+            // Add conditional class if needed
+            if (config.conditional) {
+                row.className = 'conditional-row';
+                row.id = `${key}Row`;
+            }
+
+            // Variable name cell
+            const nameCell = document.createElement('td');
+            nameCell.className = 'variable-name';
+            nameCell.textContent = config.label;
+            row.appendChild(nameCell);
+
+            // Value cell (or checkbox cell)
+            if (config.type === 'checkbox') {
+                const checkboxCell = createInput(key, config);
+                row.appendChild(checkboxCell);
+            } else {
+                const valueCell = createInput(key, config);
+                row.appendChild(valueCell);
+            }
+
+            return row;
+        }
+
+        // Function to render table from options map
+        function renderTable() {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+
+            Object.keys(optionsMap).forEach(key => {
+                const config = optionsMap[key];
+                const row = createTableRow(key, config);
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Initialize table on page load
+        renderTable();
+
+        // Set up event listeners
+        const form = document.getElementById('statementForm');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const resultSection = document.getElementById('resultSection');
+        const resultData = document.getElementById('resultData');
+
+        // Handle checkbox toggles
+        document.getElementById('has_mobile_deposit')?.addEventListener('change', function() {
+            const toggleRows = optionsMap.has_mobile_deposit.toggleRows || [];
+            toggleRows.forEach(key => {
+                const row = document.getElementById(`${key}Row`);
+                if (row) {
+                    if (this.checked) {
+                        row.classList.add('show');
+                    } else {
+                        row.classList.remove('show');
+                    }
+                }
+            });
+        });
+
+        // Handle form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Hide previous results
+            resultSection.classList.remove('show');
+            error.classList.remove('show');
+            loading.classList.add('show');
+
+            // Collect form data from options map
+            const formData = new FormData(form);
+            const data = {
+                month: formData.get('month'),
+                year: parseInt(formData.get('year')),
+                starting_balance: parseFloat(formData.get('starting_balance')),
+                withdrawal_target: parseFloat(formData.get('withdrawal_target')),
+                ending_balance_target: parseFloat(formData.get('ending_balance_target')),
+                min_transactions: parseInt(formData.get('min_transactions')),
+                card_last4: formData.get('card_last4'),
+                full_name: formData.get('full_name'),
+                address: formData.get('address'),
+                include_refs: true
+            };
+
+            // Add mobile deposit if checked
+            if (formData.get('has_mobile_deposit') === 'on') {
+                const business = formData.get('mobile_deposit_business');
+                const amount = formData.get('mobile_deposit_amount');
+                if (business) data.mobile_deposit_business = business;
+                if (amount) data.mobile_deposit_amount = parseFloat(amount);
+            }
+
+            try {
+                // Call the API
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                loading.classList.remove('show');
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to generate statement');
+                }
+
+                const result = await response.json();
+                
+                // Display result
+                resultData.textContent = JSON.stringify(result, null, 2);
+                resultSection.classList.add('show');
+
+            } catch (err) {
+                loading.classList.remove('show');
+                error.textContent = 'Error: ' + err.message;
+                error.classList.add('show');
+                console.error('Error:', err);
+            }
+        });
+    </script>
+</body>
+</html>

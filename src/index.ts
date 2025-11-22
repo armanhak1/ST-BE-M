@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import { generateStatementAI } from "./ai";
 import { createBot } from "./bot";
+import * as path from "path";
+import * as fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -27,7 +29,7 @@ app.get("/", (req, res) => {
     status: "ok", 
     message: "Bank Statement Generator API",
     timestamp: new Date().toISOString(),
-    endpoints: ["/health", "/test-webhook", "/generate", "/telegram-webhook"]
+    endpoints: ["/health", "/test-webhook", "/generate", "/exampleui", "/telegram-webhook"]
   });
 });
 
@@ -47,6 +49,7 @@ app.get("/health", (req, res) => {
     endpoints: {
       generate: "/generate (POST)",
       summary: "/summary (POST)",
+      exampleui: "/exampleui (GET)",
       health: "/health (GET)",
       webhook: "/telegram-webhook (POST)",
     },
@@ -60,6 +63,58 @@ app.get("/health", (req, res) => {
   
   console.log("✅ Returning health status:", JSON.stringify(healthStatus, null, 2));
   res.status(200).json(healthStatus);
+});
+
+// Example UI endpoint - serves HTML page with form
+app.get("/exampleui", (req, res) => {
+  console.log("📍 /exampleui endpoint hit");
+  try {
+    // Try multiple paths for the HTML file
+    const possiblePaths = [
+      path.join(__dirname, "templates", "exampleui.html"), // dist/templates (production)
+      path.join(__dirname, "..", "src", "templates", "exampleui.html"), // src/templates (if running from dist)
+      path.join(process.cwd(), "src", "templates", "exampleui.html"), // src/templates (absolute)
+    ];
+
+    console.log("🔍 Looking for exampleui.html in:", possiblePaths);
+    console.log("🔍 __dirname:", __dirname);
+    console.log("🔍 process.cwd():", process.cwd());
+
+    let htmlPath = "";
+    for (const testPath of possiblePaths) {
+      console.log("🔍 Checking path:", testPath, "exists:", fs.existsSync(testPath));
+      if (fs.existsSync(testPath)) {
+        htmlPath = testPath;
+        console.log("✅ Found HTML file at:", htmlPath);
+        break;
+      }
+    }
+
+    if (!htmlPath) {
+      console.error("❌ Example UI template not found in any of the paths");
+      return res.status(404).send(`
+        <h1>Example UI template not found</h1>
+        <p>Tried paths:</p>
+        <ul>
+          ${possiblePaths.map(p => `<li>${p}</li>`).join('')}
+        </ul>
+        <p>__dirname: ${__dirname}</p>
+        <p>process.cwd(): ${process.cwd()}</p>
+      `);
+    }
+
+    const html = fs.readFileSync(htmlPath, "utf-8");
+    console.log("✅ Serving example UI from:", htmlPath);
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
+  } catch (err: any) {
+    console.error("❌ Error serving example UI:", err);
+    res.status(500).send(`
+      <h1>Error loading example UI</h1>
+      <p>${err.message}</p>
+      <pre>${err.stack}</pre>
+    `);
+  }
 });
 
 // Test endpoint to check webhook connectivity
