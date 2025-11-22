@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Statement</title>
+    <link rel="stylesheet" href="statement.css">
+</head>
+<body>
+    <div class="statement-container">
+        <!-- Page 1: Header and Summary -->
+        <div class="page page-1">
+            <div class="header">
+                <div class="header-left">
+                    <h1 class="account-title">Wells Fargo Everyday Checking</h1>
+                    <div class="header-info">
+                        <span class="statement-date">{{statementDate}}</span>
+                        <span class="page-number">Page 1 of 10</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="logo">WF</div>
+                </div>
+            </div>
+
+            <div class="content-section">
+                <div class="address-section">
+                    <div class="address">
+                        <div class="full-name">{{fullName}}</div>
+                        <div class="address-lines">{{address}}</div>
+                    </div>
+                </div>
+
+                <div class="questions-section">
+                    <div class="questions-box">
+                        <h3>Questions?</h3>
+                        <p class="questions-text">Available by phone 24 hours a day, 7 days a week:</p>
+                        <p class="questions-text">We accept all relay calls, including 711</p>
+                        <p class="phone-number">1-800-TO-WELLS</p>
+                        <p class="questions-text">En español: <span class="phone-number">1-877-727-2932</span></p>
+                        <p class="questions-text">Online: <span class="phone-number">wellsfargo.com</span></p>
+                        <p class="questions-text">Write: <span class="phone-number">Wells Fargo Bank, N.A. (114)</span></p>
+                        <p class="questions-text">P.O. Box 6995</p>
+                        <p class="questions-text">Portland, OR  97228-6995</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="message-section">
+                <h2>You and Wells Fargo</h2>
+                <p>Thank you for being a loyal Wells Fargo customer. We value your trust in our company and look forward to continuing to serve you with your financial needs.</p>
+            </div>
+
+            <div class="benefits-section">
+                <h3>Other Wells Fargo Benefits</h3>
+                <h4>It's Cybersecurity Awareness Month.</h4>
+                <p>In today's digital world, scammers are using advanced tools like AI to make impersonation scams harder to detect. Caller ID can be spoofed, emails can be faked, voices can be cloned, and images can be altered.</p>
+                <p><strong>Imposters may contact you with messages that:</strong></p>
+                <ul>
+                    <li>Are unexpected.</li>
+                    <li>Appear to be from a legitimate source but could be spoofed.</li>
+                    <li>Claim to be urgent, asking you to act right away, without thinking.</li>
+                    <li>Use language that manipulates your emotions.</li>
+                    <li>Request payment through unusually specific methods like gift cards, cryptocurrency or payment apps.</li>
+                </ul>
+                <p>If you have any doubts about a message, call the company or government agency directly to find out if there really is a problem.</p>
+                <p>And if they're impersonating Wells Fargo, don't engage. Instead, call us right away or you can always check your account in the Wells Fargo Mobile® app* or in online banking.</p>
+            </div>
+        </div>
+
+        <!-- Page 2: Summary and Transactions -->
+        <div class="page page-2">
+            <div class="header">
+                <div class="header-left">
+                    <div class="header-info">
+                        <span class="statement-date">{{statementDate}}</span>
+                        <span class="page-number">Page 2 of 10</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="logo">WF</div>
+                </div>
+            </div>
+
+            <div class="disclaimer-section">
+                <div class="disclaimer-rule"></div>
+                <p class="disclaimer-text">Learn more at <strong>www.wellsfargo.com/scams</strong></p>
+                <p class="disclaimer-text-small">*Availability may be affected by your mobile carrier's coverage area. Your mobile carrier's message and data rates may apply.</p>
+            </div>
+
+            <div class="summary-section">
+                <div class="summary-left">
+                    <h3>Statement period activity summary</h3>
+                    <table class="summary-table">
+                        <tr>
+                            <td>Beginning balance on {{firstDate}}</td>
+                            <td class="amount">${{startingBalance}}</td>
+                        </tr>
+                        <tr>
+                            <td>Deposits/Additions</td>
+                            <td class="amount">${{totalDeposits}}</td>
+                        </tr>
+                        <tr>
+                            <td>Withdrawals/Subtractions</td>
+                            <td class="amount">-${{totalWithdrawals}}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td><strong>Ending balance on {{lastDate}}</strong></td>
+                            <td class="amount"><strong>${{endingBalance}}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="summary-right">
+                    <div class="account-info">
+                        <p>Account number: <strong>2481197222</strong> (primary account)</p>
+                        <p class="account-name"><strong>{{fullName}}</strong></p>
+                        <p class="account-terms"><em>California account terms and conditions apply</em></p>
+                        <p>For Direct Deposit use</p>
+                        <p>Routing Number (RTN): <strong>121042882</strong></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overdraft-section">
+                <h3>Overdraft Protection</h3>
+                <p>This account is not currently covered by Overdraft Protection. If you would like more information regarding Overdraft Protection and eligibility requirements please call the number listed on your statement or visit your Wells Fargo branch.</p>
+            </div>
+
+            <div class="transactions-section">
+                <h3>Transaction history</h3>
+                <table class="transactions-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Check<br>Number</th>
+                            <th>Description</th>
+                            <th>Deposits/<br>Additions</th>
+                            <th>Withdrawals/<br>Subtractions</th>
+                            <th>Ending daily<br>balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{transactions}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

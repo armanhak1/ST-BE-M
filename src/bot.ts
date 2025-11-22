@@ -308,9 +308,9 @@ export function createBot(token: string) {
         mobile_deposit_amount: data.mobile_deposit_amount,
       });
 
-      await ctx.reply("📄 Generating PDF...");
+      await ctx.reply("📄 Generating PDF from HTML/CSS template...");
       
-      // Generate PDF with new fields
+      // Generate PDF with HTML/CSS
       const pdfBuffer = await generatePDF(response.data);
       
       await ctx.reply("📤 Sending PDF...");

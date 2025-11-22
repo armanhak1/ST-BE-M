@@ -77,9 +77,9 @@ The Telegram bot now asks questions in this order:
   "month": "September",
   "year": 2025,
   "starting_balance": 2000,
-  "withdrawal_target": 5000,
+  "withdrawal_target": 13000,
   "ending_balance_target": 1000,
-  "min_transactions": 65,
+  "min_transactions": 120,
   "card_last4": "8832",
   "full_name": "JOHN DOE",  // NEW
   "address": "123 MAIN ST\nLOS ANGELES CA 90001",  // NEW

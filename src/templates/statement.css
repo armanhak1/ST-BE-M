@@ -1,0 +1,372 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12px;
+    color: #000;
+    background: #fff;
+    line-height: 1.4;
+}
+
+.statement-container {
+    width: 8.5in;
+    margin: 0 auto;
+    background: white;
+}
+
+/* Page Setup */
+.page {
+    width: 8.5in;
+    min-height: 11in;
+    padding: 0;
+    margin: 0;
+    page-break-after: always;
+    position: relative;
+}
+
+/* Header Styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 39px 54px 0 54px;
+    margin-bottom: 20px;
+}
+
+.header-left {
+    flex: 1;
+}
+
+.account-title {
+    font-size: 28px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 10px;
+}
+
+.header-info {
+    font-size: 12px;
+    font-family: 'Times New Roman', Times, serif;
+    display: flex;
+    gap: 20px;
+}
+
+.statement-date {
+    font-weight: normal;
+}
+
+.page-number {
+    margin-left: 20px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    width: 92px;
+    height: 92px;
+    background: #b40000;
+    color: #FFD700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 20px;
+    font-family: 'Helvetica', Arial, sans-serif;
+    border-radius: 4px;
+}
+
+/* Content Section */
+.content-section {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 54px;
+    margin-top: 100px;
+}
+
+.address-section {
+    flex: 1;
+}
+
+.address {
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.full-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.address-lines {
+    white-space: pre-line;
+}
+
+.questions-section {
+    width: 300px;
+    margin-left: 20px;
+}
+
+.questions-box {
+    border-left: 3px solid #000;
+    padding-left: 22px;
+}
+
+.questions-box h3 {
+    font-size: 14px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 10px;
+}
+
+.questions-text {
+    font-size: 11px;
+    font-style: italic;
+    margin-bottom: 8px;
+    line-height: 15px;
+}
+
+.phone-number {
+    font-size: 14px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin: 10px 0;
+}
+
+/* Message Section */
+.message-section {
+    padding: 0 54px;
+    margin-top: 60px;
+}
+
+.message-section h2 {
+    font-size: 19px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 10px;
+}
+
+.message-section p {
+    font-size: 11px;
+    line-height: 1.5;
+    width: 90%;
+}
+
+/* Benefits Section */
+.benefits-section {
+    padding: 0 47px;
+    margin-top: 50px;
+}
+
+.benefits-section h3 {
+    font-size: 11px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 15px;
+}
+
+.benefits-section h4 {
+    font-size: 11px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 15px;
+}
+
+.benefits-section p {
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    width: 95%;
+}
+
+.benefits-section ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.benefits-section li {
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+/* Page 2 Styles */
+.page-2 .header {
+    padding-top: 41px;
+}
+
+.disclaimer-section {
+    padding: 0 54px;
+    margin-top: 50px;
+}
+
+.disclaimer-rule {
+    height: 6px;
+    background: #111;
+    margin-bottom: 20px;
+}
+
+.disclaimer-text {
+    font-size: 10px;
+    margin-bottom: 15px;
+}
+
+.disclaimer-text-small {
+    font-size: 10px;
+    line-height: 1.5;
+    width: 90%;
+}
+
+/* Summary Section */
+.summary-section {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 54px;
+    margin-top: 30px;
+}
+
+.summary-left {
+    flex: 1;
+    max-width: 400px;
+}
+
+.summary-left h3 {
+    font-size: 12px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 15px;
+}
+
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+}
+
+.summary-table td {
+    padding: 6px 0;
+    border-top: 2px solid #222;
+}
+
+.summary-table tr:first-child td {
+    border-top: none;
+}
+
+.summary-table .amount {
+    text-align: right;
+    font-weight: normal;
+}
+
+.summary-table .total-row td {
+    font-weight: bold;
+    padding-top: 10px;
+}
+
+.summary-right {
+    width: 300px;
+    margin-left: 20px;
+}
+
+.account-info {
+    border-left: 3px solid #111;
+    padding-left: 22px;
+    font-size: 10px;
+}
+
+.account-info p {
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.account-name {
+    font-weight: bold;
+    font-size: 10px;
+}
+
+.account-terms {
+    font-style: italic;
+}
+
+/* Overdraft Section */
+.overdraft-section {
+    padding: 0 54px;
+    margin-top: 30px;
+}
+
+.overdraft-section h3 {
+    font-size: 12px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 10px;
+}
+
+.overdraft-section p {
+    font-size: 10px;
+    line-height: 1.5;
+    width: 90%;
+}
+
+/* Transactions Section */
+.transactions-section {
+    padding: 0 54px;
+    margin-top: 30px;
+}
+
+.transactions-section h3 {
+    font-size: 12px;
+    font-weight: bold;
+    font-family: 'Helvetica', Arial, sans-serif;
+    margin-bottom: 15px;
+}
+
+.transactions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+}
+
+.transactions-table thead {
+    border-bottom: 1px solid #808080;
+}
+
+.transactions-table th {
+    text-align: left;
+    font-style: italic;
+    font-weight: normal;
+    padding: 5px 0;
+    font-size: 10px;
+}
+
+.transactions-table td {
+    padding: 5px 0;
+    border-bottom: 1px solid #e9e9e9;
+}
+
+.transactions-table tbody tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.transactions-table .amount {
+    text-align: right;
+}
+
+/* Print Styles */
+@media print {
+    .page {
+        page-break-after: always;
+        page-break-inside: avoid;
+    }
+    
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
